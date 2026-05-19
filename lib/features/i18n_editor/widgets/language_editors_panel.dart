@@ -22,6 +22,9 @@ class LanguageEditorsPanel extends StatelessWidget {
     final AppTypography typography =
         Theme.of(context).extension<AppTypography>() ??
         const AppTypography(fontSizeMedium: 14);
+    final Color outlineColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.45);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
@@ -54,11 +57,14 @@ class LanguageEditorsPanel extends StatelessWidget {
                             maxLines: null,
                             decoration: InputDecoration(
                               labelText: language,
-                              border: const OutlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white10),
+                              border: OutlineInputBorder(
+                                borderSide: BorderSide(color: outlineColor),
                               ),
-                              enabledBorder: const OutlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white10),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: outlineColor),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: outlineColor),
                               ),
                             ),
                           );

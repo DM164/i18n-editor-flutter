@@ -8,6 +8,8 @@ class KeyTreeSidebar extends StatelessWidget {
   const KeyTreeSidebar({
     required this.keys,
     required this.selectedKey,
+    required this.searchController,
+    required this.onSearchChanged,
     required this.headerSubtitle,
     required this.onSelectKey,
     required this.onAddChildKey,
@@ -17,6 +19,8 @@ class KeyTreeSidebar extends StatelessWidget {
 
   final List<String> keys;
   final String? selectedKey;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
   final String headerSubtitle;
   final ValueChanged<String> onSelectKey;
   final ValueChanged<String> onAddChildKey;
@@ -32,6 +36,9 @@ class KeyTreeSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final KeyTreeNode treeRoot = _buildKeyTree(keys);
+    final Color dividerColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.35);
 
     return SizedBox(
       width: 320,
@@ -44,15 +51,30 @@ class KeyTreeSidebar extends StatelessWidget {
               title: const Text('Translation Keys'),
               subtitle: Text(headerSubtitle),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: TextField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'Search keys and translations',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  border: OutlineInputBorder(),
+                  hintStyle: TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
             const Divider(height: 1),
             Expanded(
               child:
                   keys.isEmpty
-                      ? const Center(child: Text('No keys loaded'))
+                      ? const Center(child: Text('No matching keys'))
                       : ListView(
                         children: _buildTreeWidgets(
                           context,
                           treeRoot,
+                          dividerColor: dividerColor,
                           depth: 0,
                         ),
                       ),
@@ -89,6 +111,7 @@ class KeyTreeSidebar extends StatelessWidget {
   List<Widget> _buildTreeWidgets(
     BuildContext context,
     KeyTreeNode node, {
+    required Color dividerColor,
     required int depth,
   }) {
     final List<KeyTreeNode> children =
@@ -128,7 +151,7 @@ class KeyTreeSidebar extends StatelessWidget {
         padding: rowIndent,
         child: ExpansionTile(
           key: PageStorageKey<String>('key-tree-${child.fullPath}'),
-          shape: const Border(top: BorderSide(color: Colors.white10)),
+          shape: Border(top: BorderSide(color: dividerColor)),
           collapsedShape: const Border(),
           tilePadding: _tilePadding,
           childrenPadding: EdgeInsets.zero,
@@ -173,7 +196,12 @@ class KeyTreeSidebar extends StatelessWidget {
                   ),
                 ),
               ),
-            ..._buildTreeWidgets(context, child, depth: depth + 1),
+            ..._buildTreeWidgets(
+              context,
+              child,
+              dividerColor: dividerColor,
+              depth: depth + 1,
+            ),
           ],
         ),
       );

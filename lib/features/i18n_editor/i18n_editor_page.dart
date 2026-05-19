@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import 'dialogs/key_dialogs.dart';
 import 'services/translation_file_service.dart';
 import 'widgets/key_tree_sidebar.dart';
 import 'widgets/language_editors_panel.dart';
@@ -18,6 +19,7 @@ class I18nEditorPage extends StatefulWidget {
 class _I18nEditorPageState extends State<I18nEditorPage> {
   static const String _translationsFolderName = 'translations';
 
+  final TextEditingController _searchController = TextEditingController();
   final Map<String, TextEditingController> _controllersByLanguage =
       <String, TextEditingController>{};
 
@@ -32,11 +34,49 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     for (final TextEditingController controller
         in _controllersByLanguage.values) {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    setState(() {});
+  }
+
+  List<String> get _filteredKeys {
+    final String query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return _keys;
+    }
+
+    return _keys.where((String key) => _keyMatchesSearch(key, query)).toList();
+  }
+
+  bool _keyMatchesSearch(String key, String query) {
+    if (key.toLowerCase().contains(query)) {
+      return true;
+    }
+
+    final Map<String, String> values = Map<String, String>.from(
+      _translationsByKey[key] ?? <String, String>{},
+    );
+
+    if (_selectedKey == key) {
+      for (final String language in _languages) {
+        values[language] = _controllersByLanguage[language]?.text ?? '';
+      }
+    }
+
+    for (final String value in values.values) {
+      if (value.toLowerCase().contains(query)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Future<void> _pickAndLoadFolder() async {
@@ -118,6 +158,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       setState(() {
         _projectFolderPath = projectFolderPath;
         _translationsFolderPath = translationsFolderPath;
+        _searchController.clear();
         _languages = nextLanguages;
         _syncLanguageControllers();
         _translationsByKey
@@ -286,47 +327,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   }
 
   Future<void> _showAddKeyDialog() async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-
-    if (!mounted) {
-      return;
-    }
-
-    String draftKey = '';
-
-    final String? rawKey = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Add translation key'),
-          content: TextField(
-            autofocus: false,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              hintText: 'example: home.header.title',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (String value) {
-              draftKey = value;
-            },
-            onSubmitted: (String value) {
-              Navigator.of(dialogContext).pop(value);
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(draftKey),
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
+    final String? rawKey = await KeyDialogs.showAddKeyDialog(context);
 
     if (!mounted || rawKey == null) {
       return;
@@ -336,39 +337,9 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   }
 
   Future<void> _showAddChildKeyDialog(String parentPath) async {
-    String draftSegment = '';
-
-    final String? rawSegment = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Add key under $parentPath'),
-          content: TextField(
-            autofocus: false,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              hintText: 'new_key',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (String value) {
-              draftSegment = value;
-            },
-            onSubmitted: (String value) {
-              Navigator.of(dialogContext).pop(value);
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(draftSegment),
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+    final String? rawSegment = await KeyDialogs.showAddChildKeyDialog(
+      context,
+      parentPath,
     );
 
     if (!mounted || rawSegment == null) {
@@ -402,32 +373,13 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       return;
     }
 
-    final bool isSubtreeDelete = affectedKeys.length > 1;
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(isSubtreeDelete ? 'Delete subtree' : 'Delete key'),
-          content: Text(
-            isSubtreeDelete
-                ? 'Delete ${affectedKeys.length} keys under "$fullPath"?'
-                : 'Delete key "$fullPath"?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    final bool confirmed = await KeyDialogs.showDeleteKeyConfirmation(
+      context,
+      fullPath: fullPath,
+      affectedCount: affectedKeys.length,
     );
 
-    if (!mounted || confirmed != true) {
+    if (!mounted || !confirmed) {
       return;
     }
 
@@ -458,6 +410,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   @override
   Widget build(BuildContext context) {
     final bool hasLanguages = _languages.isNotEmpty;
+    final List<String> filteredKeys = _filteredKeys;
 
     return Scaffold(
       appBar: AppBar(
@@ -495,8 +448,10 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       body: Row(
         children: <Widget>[
           KeyTreeSidebar(
-            keys: _keys,
+            keys: filteredKeys,
             selectedKey: _selectedKey,
+            searchController: _searchController,
+            onSearchChanged: _onSearchChanged,
             headerSubtitle:
                 _projectFolderPath == null
                     ? 'Open a project folder to start'
