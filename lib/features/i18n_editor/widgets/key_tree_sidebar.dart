@@ -13,6 +13,8 @@ class KeyTreeSidebar extends StatefulWidget {
     required this.onSelectKey,
     required this.onAddChildKey,
     required this.onDeleteKey,
+    required this.translationsByKey,
+    required this.languages,
     this.searchQuery = '',
     this.translationMatches = const <String>{},
     super.key,
@@ -25,6 +27,8 @@ class KeyTreeSidebar extends StatefulWidget {
   final ValueChanged<String> onSelectKey;
   final ValueChanged<String> onAddChildKey;
   final ValueChanged<String> onDeleteKey;
+  final Map<String, Map<String, String>> translationsByKey;
+  final List<String> languages;
   final String searchQuery;
   final Set<String> translationMatches;
 
@@ -69,7 +73,7 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
   }
 
   static const double _subtitleFontSize = 11;
-  static const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 8);
+  static const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 14);
   static const VisualDensity _compactDensity = VisualDensity(
     horizontal: 0,
     vertical: -4,
@@ -181,12 +185,27 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
         node.children.values.toList()
           ..sort((a, b) => a.segment.compareTo(b.segment));
 
+    // Helper to check if this node or any descendant has a missing translation
+    bool hasMissingRecursive(KeyTreeNode node) {
+      if (node.children.isEmpty) {
+        final translations = widget.translationsByKey[node.fullPath] ?? {};
+        return widget.languages.any(
+          (lang) => (translations[lang] ?? '').trim().isEmpty,
+        );
+      }
+      for (final child in node.children.values) {
+        if (hasMissingRecursive(child)) return true;
+      }
+      return false;
+    }
+
     return children.map((child) {
       final bool hasChildren = child.children.isNotEmpty;
       final EdgeInsets rowIndent = EdgeInsets.only(left: depth * 10.0);
       final bool isTranslationMatch = widget.translationMatches.contains(
         child.fullPath,
       );
+      final bool hasMissing = hasMissingRecursive(child);
 
       if (!hasChildren) {
         return Padding(
@@ -212,6 +231,15 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
                         Icons.search,
                         size: 16,
                         color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  if (hasMissing)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.help_outline,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                 ],
@@ -249,10 +277,23 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
               minTileHeight: 36,
               selected: child.fullPath == widget.selectedKey,
               onTap: () => widget.onSelectKey(child.fullPath),
-              title: Text(
-                child.segment,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              title: Row(
+                children: [
+                  Text(
+                    child.segment,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  if (hasMissing)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.help_outline,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                ],
               ),
               subtitle: Text(
                 child.fullPath,

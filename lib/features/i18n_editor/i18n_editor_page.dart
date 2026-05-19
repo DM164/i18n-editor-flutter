@@ -537,6 +537,8 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             onDeleteKey: _deleteKeyPath,
             searchQuery: searchQuery,
             translationMatches: translationMatches,
+            translationsByKey: _translationsByKey,
+            languages: _languages,
           ),
           Expanded(
             child: LanguageEditorsPanel(
