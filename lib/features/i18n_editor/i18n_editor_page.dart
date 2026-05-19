@@ -23,9 +23,10 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   final Map<String, TextEditingController> _controllersByLanguage =
       <String, TextEditingController>{};
 
-  final Map<String, Map<String, String>> _translationsByKey = {};
-  List<String> _languages = [];
-  List<String> _keys = [];
+  final Map<String, Map<String, String>> _translationsByKey =
+      <String, Map<String, String>>{};
+  List<String> _languages = <String>[];
+  List<String> _keys = <String>[];
 
   String? _selectedKey;
   String? _projectFolderPath;
@@ -226,12 +227,10 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Saved ${_languages.join(', ')} in $_translationsFolderPath',
-          ),
-        ),
+      _showToast(
+        title: 'Saved ${_languages.join(', ')}',
+        subtitle: _translationsFolderPath ?? '',
+        icon: Icons.save_rounded,
       );
     } catch (error) {
       if (!mounted) {
@@ -247,6 +246,35 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
         });
       }
     }
+  }
+
+  void _showToast({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final OverlayState? overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay == null) {
+      return;
+    }
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (BuildContext context) {
+        return _AnimatedToast(
+          title: title,
+          subtitle: subtitle,
+          icon: icon,
+          onDismiss: () {
+            if (entry.mounted) {
+              entry.remove();
+            }
+          },
+        );
+      },
+    );
+
+    overlay.insert(entry);
   }
 
   void _bindEditors() {
@@ -389,9 +417,10 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
         _translationsByKey.remove(key);
       }
       _keys = _translationsByKey.keys.toList()..sort();
-      if (_selectedKey != null &&
-          (affectedKeys.contains(_selectedKey) ||
-              _selectedKey!.startsWith('$fullPath.'))) {
+      final String? selectedKey = _selectedKey;
+      if (selectedKey != null &&
+          (affectedKeys.contains(selectedKey) ||
+              selectedKey.startsWith('$fullPath.'))) {
         _selectedKey = _keys.isEmpty ? null : _keys.first;
       }
       _bindEditors();
@@ -411,10 +440,49 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   Widget build(BuildContext context) {
     final bool hasLanguages = _languages.isNotEmpty;
     final List<String> filteredKeys = _filteredKeys;
+    final String? projectFolderPath = _projectFolderPath;
+    final String headerSubtitle =
+        projectFolderPath == null
+            ? 'Open a project folder to start'
+            : 'Loaded: ${TranslationFileService.lastPathSegment(projectFolderPath)}/$_translationsFolderName';
+
+    final String searchQuery = _searchController.text.trim().toLowerCase();
+    final Set<String> translationMatches = <String>{};
+    if (searchQuery.isNotEmpty) {
+      for (final String key in _keys) {
+        final Map<String, String> values =
+            _translationsByKey[key] ?? <String, String>{};
+        for (final String value in values.values) {
+          if (value.toLowerCase().contains(searchQuery)) {
+            translationMatches.add(key);
+            break;
+          }
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Simple I18n Editor'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.translate, color: Colors.deepPurpleAccent),
+                const SizedBox(width: 8),
+                const Text(
+                  'i18n Editor',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.deepPurpleAccent,
+                  ),
+                ),
+              ],
+            ),
+            Text(headerSubtitle, style: const TextStyle(fontSize: 14)),
+          ],
+        ),
         actions: <Widget>[
           TextButton.icon(
             onPressed: _isBusy ? null : _pickAndLoadFolder,
@@ -452,13 +520,11 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             selectedKey: _selectedKey,
             searchController: _searchController,
             onSearchChanged: _onSearchChanged,
-            headerSubtitle:
-                _projectFolderPath == null
-                    ? 'Open a project folder to start'
-                    : 'Loaded: ${TranslationFileService.lastPathSegment(_projectFolderPath!)}/$_translationsFolderName (${_languages.length} languages)',
             onSelectKey: _selectKey,
             onAddChildKey: _showAddChildKeyDialog,
             onDeleteKey: _deleteKeyPath,
+            searchQuery: searchQuery,
+            translationMatches: translationMatches,
           ),
           Expanded(
             child: LanguageEditorsPanel(
@@ -469,6 +535,170 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AnimatedToast extends StatefulWidget {
+  const _AnimatedToast({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onDismiss,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_AnimatedToast> createState() => _AnimatedToastState();
+}
+
+class _AnimatedToastState extends State<_AnimatedToast>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<double> _scale;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 180),
+    );
+
+    final CurvedAnimation curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _opacity = curved;
+    _scale = Tween<double>(begin: 0.96, end: 1).animate(curved);
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.18),
+      end: Offset.zero,
+    ).animate(curved);
+
+    _controller.forward();
+    Future<void>.delayed(const Duration(milliseconds: 1600), () async {
+      if (!mounted) {
+        return;
+      }
+      await _controller.reverse();
+      if (mounted) {
+        widget.onDismiss();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color backgroundColor = theme.colorScheme.surfaceContainerHigh;
+    final Color foregroundColor = theme.colorScheme.onSurface;
+    final Color iconBackgroundColor = theme.colorScheme.primaryContainer;
+    final Color iconColor = theme.colorScheme.onPrimaryContainer;
+
+    return IgnorePointer(
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: FadeTransition(
+              opacity: _opacity,
+              child: SlideTransition(
+                position: _offset,
+                child: ScaleTransition(
+                  scale: _scale,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: backgroundColor.withValues(alpha: 0.98),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.45,
+                          ),
+                        ),
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 18,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: iconBackgroundColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                widget.icon,
+                                color: iconColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  widget.title,
+                                  style: TextStyle(
+                                    color: foregroundColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (widget.subtitle.isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    widget.subtitle,
+                                    style: TextStyle(
+                                      color: foregroundColor.withValues(
+                                        alpha: 0.72,
+                                      ),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

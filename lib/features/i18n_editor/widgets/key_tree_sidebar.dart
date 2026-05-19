@@ -4,16 +4,17 @@ import '../models/key_tree_node.dart';
 
 enum KeyContextAction { addChild, delete }
 
-class KeyTreeSidebar extends StatelessWidget {
+class KeyTreeSidebar extends StatefulWidget {
   const KeyTreeSidebar({
     required this.keys,
     required this.selectedKey,
     required this.searchController,
     required this.onSearchChanged,
-    required this.headerSubtitle,
     required this.onSelectKey,
     required this.onAddChildKey,
     required this.onDeleteKey,
+    this.searchQuery = '',
+    this.translationMatches = const <String>{},
     super.key,
   });
 
@@ -21,10 +22,51 @@ class KeyTreeSidebar extends StatelessWidget {
   final String? selectedKey;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
-  final String headerSubtitle;
   final ValueChanged<String> onSelectKey;
   final ValueChanged<String> onAddChildKey;
   final ValueChanged<String> onDeleteKey;
+  final String searchQuery;
+  final Set<String> translationMatches;
+
+  @override
+  State<KeyTreeSidebar> createState() => _KeyTreeSidebarState();
+}
+
+class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
+  late Set<String> _expandedNodes;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedNodes = _calculateInitialExpansion();
+  }
+
+  @override
+  void didUpdateWidget(KeyTreeSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.searchQuery != oldWidget.searchQuery ||
+        widget.keys != oldWidget.keys) {
+      _expandedNodes = _calculateInitialExpansion();
+    }
+  }
+
+  Set<String> _calculateInitialExpansion() {
+    if (widget.searchQuery.isEmpty) return <String>{};
+    // Expand all parent paths of matching keys
+    final Set<String> expanded = <String>{};
+    for (final String key in widget.keys) {
+      if (key.toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
+          widget.translationMatches.contains(key)) {
+        final parts = key.split('.');
+        String path = '';
+        for (int i = 0; i < parts.length - 1; i++) {
+          path = path.isEmpty ? parts[i] : '$path.${parts[i]}';
+          expanded.add(path);
+        }
+      }
+    }
+    return expanded;
+  }
 
   static const double _subtitleFontSize = 11;
   static const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 8);
@@ -35,10 +77,15 @@ class KeyTreeSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final KeyTreeNode treeRoot = _buildKeyTree(keys);
-    final Color dividerColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.35);
+    final KeyTreeNode treeRoot = _buildKeyTree(widget.keys);
+    final ThemeData theme = Theme.of(context);
+    final Color dividerColor = theme.colorScheme.outlineVariant.withValues(
+      alpha: 0.35,
+    );
+    final Color subtleBorderColor =
+        theme.brightness == Brightness.dark
+            ? Colors.white10
+            : theme.colorScheme.outlineVariant.withValues(alpha: 0.25);
 
     return SizedBox(
       width: 320,
@@ -47,28 +94,44 @@ class KeyTreeSidebar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            ListTile(
-              title: const Text('Translation Keys'),
-              subtitle: Text(headerSubtitle),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
               child: TextField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-                decoration: const InputDecoration(
+                controller: widget.searchController,
+                onChanged: widget.onSearchChanged,
+                decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Search keys and translations',
-                  prefixIcon: Icon(Icons.search, size: 18),
-                  border: OutlineInputBorder(),
-                  hintStyle: TextStyle(fontSize: 14),
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  border: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderSide: BorderSide(
+                      color: subtleBorderColor,
+                      width: 1.2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderSide: BorderSide(
+                      color: subtleBorderColor,
+                      width: 1.2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                      width: 1.5,
+                    ),
+                  ),
+                  hintStyle: const TextStyle(fontSize: 14),
                 ),
               ),
             ),
             const Divider(height: 1),
             Expanded(
               child:
-                  keys.isEmpty
+                  widget.keys.isEmpty
                       ? const Center(child: Text('No matching keys'))
                       : ListView(
                         children: _buildTreeWidgets(
@@ -121,6 +184,9 @@ class KeyTreeSidebar extends StatelessWidget {
     return children.map((child) {
       final bool hasChildren = child.children.isNotEmpty;
       final EdgeInsets rowIndent = EdgeInsets.only(left: depth * 10.0);
+      final bool isTranslationMatch = widget.translationMatches.contains(
+        child.fullPath,
+      );
 
       if (!hasChildren) {
         return Padding(
@@ -134,9 +200,22 @@ class KeyTreeSidebar extends StatelessWidget {
               visualDensity: _compactDensity,
               minVerticalPadding: 4,
               minTileHeight: 36,
-              selected: child.fullPath == selectedKey,
-              onTap: () => onSelectKey(child.fullPath),
-              title: Text(child.segment, overflow: TextOverflow.ellipsis),
+              selected: child.fullPath == widget.selectedKey,
+              onTap: () => widget.onSelectKey(child.fullPath),
+              title: Row(
+                children: [
+                  Text(child.segment, overflow: TextOverflow.ellipsis),
+                  if (isTranslationMatch)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.search,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Text(
                 child.fullPath,
                 overflow: TextOverflow.ellipsis,
@@ -147,10 +226,14 @@ class KeyTreeSidebar extends StatelessWidget {
         );
       }
 
+      final bool expanded = _expandedNodes.contains(child.fullPath);
+
       return Padding(
         padding: rowIndent,
         child: ExpansionTile(
-          key: PageStorageKey<String>('key-tree-${child.fullPath}'),
+          key: PageStorageKey<String>(
+            'key-tree-${child.fullPath}-${widget.searchQuery}',
+          ),
           shape: Border(top: BorderSide(color: dividerColor)),
           collapsedShape: const Border(),
           tilePadding: _tilePadding,
@@ -164,6 +247,8 @@ class KeyTreeSidebar extends StatelessWidget {
               visualDensity: _compactDensity,
               minVerticalPadding: 0,
               minTileHeight: 36,
+              selected: child.fullPath == widget.selectedKey,
+              onTap: () => widget.onSelectKey(child.fullPath),
               title: Text(
                 child.segment,
                 overflow: TextOverflow.ellipsis,
@@ -176,26 +261,8 @@ class KeyTreeSidebar extends StatelessWidget {
               ),
             ),
           ),
-          initiallyExpanded: true,
+          initiallyExpanded: expanded,
           children: <Widget>[
-            if (child.isLeaf)
-              Padding(
-                padding: const EdgeInsets.only(left: 10),
-                child: _withKeyContextMenu(
-                  context: context,
-                  node: child,
-                  child: ListTile(
-                    contentPadding: _tilePadding,
-                    dense: true,
-                    visualDensity: _compactDensity,
-                    minVerticalPadding: 4,
-                    minTileHeight: 32,
-                    selected: child.fullPath == selectedKey,
-                    onTap: () => onSelectKey(child.fullPath),
-                    title: const Text('(value)'),
-                  ),
-                ),
-              ),
             ..._buildTreeWidgets(
               context,
               child,
@@ -218,7 +285,7 @@ class KeyTreeSidebar extends StatelessWidget {
       onSecondaryTapDown:
           (TapDownDetails details) =>
               _showKeyContextMenu(context, details, node),
-      onLongPress: () => onAddChildKey(node.fullPath),
+      onLongPress: () => widget.onAddChildKey(node.fullPath),
       child: child,
     );
   }
@@ -258,10 +325,10 @@ class KeyTreeSidebar extends StatelessWidget {
 
     switch (action) {
       case KeyContextAction.addChild:
-        onAddChildKey(node.fullPath);
+        widget.onAddChildKey(node.fullPath);
         break;
       case KeyContextAction.delete:
-        onDeleteKey(node.fullPath);
+        widget.onDeleteKey(node.fullPath);
         break;
     }
   }

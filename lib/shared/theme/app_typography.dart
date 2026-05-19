@@ -19,8 +19,11 @@ class AppTypography extends ThemeExtension<AppTypography> {
       return this;
     }
 
-    return AppTypography(
-      fontSizeMedium: ui.lerpDouble(fontSizeMedium, other.fontSizeMedium, t)!,
+    final double? lerpedFontSize = ui.lerpDouble(
+      fontSizeMedium,
+      other.fontSizeMedium,
+      t,
     );
+    return AppTypography(fontSizeMedium: lerpedFontSize ?? fontSizeMedium);
   }
 }
