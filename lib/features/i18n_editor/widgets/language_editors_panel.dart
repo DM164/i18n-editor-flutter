@@ -9,6 +9,7 @@ class LanguageEditorsPanel extends StatelessWidget {
     required this.selectedKey,
     required this.languages,
     required this.controllersByLanguage,
+    required this.isLeaf,
     super.key,
   });
 
@@ -16,6 +17,7 @@ class LanguageEditorsPanel extends StatelessWidget {
   final String? selectedKey;
   final List<String> languages;
   final Map<String, TextEditingController> controllersByLanguage;
+  final bool isLeaf;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,22 @@ class LanguageEditorsPanel extends StatelessWidget {
               hasLanguages
                   ? 'Select a key from the sidebar'
                   : 'No language files found in translations folder',
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!isLeaf) {
+      return Card(
+        margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text(
+              'This key is a parent and cannot have content. Select a leaf key to edit translations.',
+              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              textAlign: TextAlign.center,
             ),
           ),
         ),
@@ -82,7 +100,8 @@ class LanguageEditorsPanel extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (BuildContext context, int index) {
                   final String language = languages[index];
-                  final TextEditingController? controller = controllersByLanguage[language];
+                  final TextEditingController? controller =
+                      controllersByLanguage[language];
                   if (controller == null) {
                     return const SizedBox.shrink();
                   }

@@ -461,6 +461,18 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       }
     }
 
+    // Compute which keys are leaves for editability (not a prefix of any other key)
+    final Set<String> nonLeafKeys = <String>{};
+    for (final String key in _keys) {
+      for (int i = 1; i < key.length; i++) {
+        if (key[i] == '.') {
+          nonLeafKeys.add(key.substring(0, i));
+        }
+      }
+    }
+    final bool selectedKeyIsLeaf =
+        _selectedKey != null && !nonLeafKeys.contains(_selectedKey!);
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -532,6 +544,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
               selectedKey: _selectedKey,
               languages: _languages,
               controllersByLanguage: _controllersByLanguage,
+              isLeaf: selectedKeyIsLeaf,
             ),
           ),
         ],

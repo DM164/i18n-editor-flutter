@@ -104,21 +104,21 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
                   hintText: 'Search keys and translations',
                   prefixIcon: const Icon(Icons.search, size: 18),
                   border: OutlineInputBorder(
-                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderRadius: const BorderRadius.all(Radius.circular(10)),
                     borderSide: BorderSide(
                       color: subtleBorderColor,
                       width: 1.2,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderRadius: const BorderRadius.all(Radius.circular(10)),
                     borderSide: BorderSide(
                       color: subtleBorderColor,
                       width: 1.2,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    borderRadius: const BorderRadius.all(Radius.circular(10)),
                     borderSide: BorderSide(
                       color: theme.colorScheme.primary.withValues(alpha: 0.5),
                       width: 1.5,
