@@ -9,6 +9,7 @@ class KeyTreeSidebar extends StatefulWidget {
     required this.keys,
     required this.selectedKey,
     required this.searchController,
+    required this.searchFocusNode,
     required this.onSearchChanged,
     required this.onSelectKey,
     required this.onAddChildKey,
@@ -24,6 +25,7 @@ class KeyTreeSidebar extends StatefulWidget {
   final List<String> keys;
   final String? selectedKey;
   final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSelectKey;
   final ValueChanged<String> onAddChildKey;
@@ -106,6 +108,7 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
               child: TextField(
                 controller: widget.searchController,
+                focusNode: widget.searchFocusNode,
                 onChanged: widget.onSearchChanged,
                 decoration: InputDecoration(
                   isDense: true,

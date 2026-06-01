@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'dialogs/key_dialogs.dart';
 import 'services/translation_file_service.dart';
@@ -20,6 +21,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   static const String _translationsFolderName = 'translations';
 
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final Map<String, TextEditingController> _controllersByLanguage =
       <String, TextEditingController>{};
 
@@ -34,13 +36,64 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   bool _isBusy = false;
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _searchController.dispose();
+    _searchFocusNode.dispose();
     for (final TextEditingController controller
         in _controllersByLanguage.values) {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+
+    final bool ctrlOrMeta =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (!ctrlOrMeta) return false;
+
+    final LogicalKeyboardKey key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.keyS) {
+      final bool canSave =
+          !_isBusy &&
+          _translationsFolderPath != null &&
+          _keys.isNotEmpty &&
+          _languages.isNotEmpty;
+      if (canSave) _saveLanguageFiles();
+      return true;
+    }
+
+    if (key == LogicalKeyboardKey.keyF) {
+      _searchFocusNode.requestFocus();
+      final String current = _searchController.text;
+      if (current.isNotEmpty) {
+        _searchController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: current.length,
+        );
+      }
+      return true;
+    }
+
+    if (key == LogicalKeyboardKey.keyR) {
+      final String? selected = _selectedKey;
+      if (!_isBusy && selected != null) {
+        _showRenameKeyDialog(selected);
+      }
+      return true;
+    }
+
+    return false;
   }
 
   void _onSearchChanged(String _) {
@@ -540,6 +593,11 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   @override
   Widget build(BuildContext context) {
     final bool hasLanguages = _languages.isNotEmpty;
+    final bool canSave =
+        !_isBusy &&
+        _translationsFolderPath != null &&
+        _keys.isNotEmpty &&
+        _languages.isNotEmpty;
     final List<String> filteredKeys = _filteredKeys;
     final String? projectFolderPath = _projectFolderPath;
     final String headerSubtitle =
@@ -604,13 +662,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
-            onPressed:
-                _isBusy ||
-                        _translationsFolderPath == null ||
-                        _keys.isEmpty ||
-                        _languages.isEmpty
-                    ? null
-                    : _saveLanguageFiles,
+            onPressed: canSave ? _saveLanguageFiles : null,
             icon: const Icon(Icons.save),
             label: const Text('Save translations'),
           ),
@@ -632,6 +684,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             keys: filteredKeys,
             selectedKey: _selectedKey,
             searchController: _searchController,
+            searchFocusNode: _searchFocusNode,
             onSearchChanged: _onSearchChanged,
             onSelectKey: _selectKey,
             onAddChildKey: _showAddChildKeyDialog,
