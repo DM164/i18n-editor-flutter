@@ -77,7 +77,6 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
     return expanded;
   }
 
-  static const double _subtitleFontSize = 11;
   static const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 14);
   static const VisualDensity _compactDensity = VisualDensity(
     horizontal: 0,
@@ -258,24 +257,25 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
       return _wrapWithTreeGuides(
         depth: depth,
         guideColor: _guideColorForDepth(context, depth),
-        child: ExpansionTile(
-          key: PageStorageKey<String>(
-            'key-tree-${child.fullPath}-${widget.searchQuery}',
-          ),
-          shape: Border(top: BorderSide(color: dividerColor)),
-          collapsedShape: const Border(),
-          tilePadding: _tilePadding,
-          childrenPadding: EdgeInsets.zero,
-          title: _withKeyContextMenu(
-            context: context,
-            node: child,
-            child: ListTile(
+        child: _withKeyContextMenu(
+          context: context,
+          node: child,
+          child: ExpansionTile(
+            key: PageStorageKey<String>(
+              'key-tree-${child.fullPath}-${widget.searchQuery}',
+            ),
+            dense: true,
+            visualDensity: _compactDensity,
+            shape: Border(top: BorderSide(color: dividerColor)),
+            collapsedShape: const Border(),
+            tilePadding: _tilePadding,
+            childrenPadding: EdgeInsets.zero,
+            title: ListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
               visualDensity: _compactDensity,
               minVerticalPadding: 0,
-              selected: child.fullPath == widget.selectedKey,
-              onTap: () => widget.onSelectKey(child.fullPath),
+              minTileHeight: 20,
               title: Row(
                 children: [
                   Text(
@@ -295,16 +295,16 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
                 ],
               ),
             ),
+            initiallyExpanded: expanded,
+            children: <Widget>[
+              ..._buildTreeWidgets(
+                context,
+                child,
+                dividerColor: dividerColor,
+                depth: depth + 1,
+              ),
+            ],
           ),
-          initiallyExpanded: expanded,
-          children: <Widget>[
-            ..._buildTreeWidgets(
-              context,
-              child,
-              dividerColor: dividerColor,
-              depth: depth + 1,
-            ),
-          ],
         ),
       );
     }).toList();
