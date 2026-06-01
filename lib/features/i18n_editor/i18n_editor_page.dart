@@ -603,7 +603,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
     final String headerSubtitle =
         projectFolderPath == null
             ? 'Open a project folder to start'
-            : 'Loaded: ${TranslationFileService.lastPathSegment(projectFolderPath)}/$_translationsFolderName';
+            : '${TranslationFileService.lastPathSegment(projectFolderPath)}/$_translationsFolderName';
 
     final String searchQuery = _searchController.text.trim().toLowerCase();
     final Set<String> translationMatches = <String>{};
@@ -634,48 +634,76 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 70,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Icon(Icons.translate, color: Colors.deepPurpleAccent),
+                const Icon(
+                  Icons.translate,
+                  color: Colors.deepPurpleAccent,
+                  size: 28,
+                ),
                 const SizedBox(width: 8),
                 const Text(
-                  'i18n Editor',
+                  'i18n',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: Colors.deepPurpleAccent,
                   ),
                 ),
               ],
             ),
-            Text(headerSubtitle, style: const TextStyle(fontSize: 14)),
           ],
         ),
-        actions: <Widget>[
-          TextButton.icon(
-            onPressed: _isBusy ? null : _pickAndLoadFolder,
-            icon: const Icon(Icons.folder_open),
-            label: const Text('Open project folder'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Text(headerSubtitle, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 6),
+                    Icon(Icons.folder_open, size: 18),
+                  ],
+                ),
+                SizedBox(height: 6),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isBusy ? null : _pickAndLoadFolder,
+                      style: OutlinedButton.styleFrom(
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          width: 1,
+                        ),
+                      ),
+                      icon: const Icon(Icons.folder_open),
+                      label: const Text('Select folder'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: canSave ? _saveLanguageFiles : null,
+                      style: FilledButton.styleFrom(
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                      ),
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: canSave ? _saveLanguageFiles : null,
-            icon: const Icon(Icons.save),
-            label: const Text('Save translations'),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed:
-                _isBusy || _translationsFolderPath == null
-                    ? null
-                    : _showAddKeyDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Add key'),
-          ),
-          const SizedBox(width: 12),
         ],
       ),
       body: Row(
@@ -705,6 +733,17 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+        child: FloatingActionButton.extended(
+          onPressed:
+              _isBusy || _translationsFolderPath == null
+                  ? null
+                  : _showAddKeyDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Add key'),
+        ),
       ),
     );
   }

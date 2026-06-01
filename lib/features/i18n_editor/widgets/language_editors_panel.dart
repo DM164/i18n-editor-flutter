@@ -31,7 +31,7 @@ class LanguageEditorsPanel extends StatelessWidget {
 
     if (selectedKeyValue == null || !hasLanguages) {
       return Card(
-        margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+        margin: const EdgeInsets.fromLTRB(0, 0, 10, 10),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Center(
@@ -62,7 +62,7 @@ class LanguageEditorsPanel extends StatelessWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+      margin: const EdgeInsets.fromLTRB(0, 0, 10, 10),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

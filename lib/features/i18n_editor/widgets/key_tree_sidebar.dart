@@ -100,12 +100,12 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
     return SizedBox(
       width: 320,
       child: Card(
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
               child: TextField(
                 controller: widget.searchController,
                 focusNode: widget.searchFocusNode,
