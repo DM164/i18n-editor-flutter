@@ -97,6 +97,53 @@ class KeyDialogs {
     return rawSegment;
   }
 
+  static Future<String?> showRenameKeyDialog(
+    BuildContext context,
+    String currentPath,
+  ) async {
+    String draftKey = currentPath;
+
+    final String? rawKey = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Rename key',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          content: TextFormField(
+            initialValue: currentPath,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              hintText: 'example: action.saving.apply',
+              border: OutlineInputBorder(),
+              hintStyle: TextStyle(fontSize: 14),
+            ),
+            onChanged: (String value) {
+              draftKey = value;
+            },
+            onFieldSubmitted: (String value) {
+              Navigator.of(dialogContext).pop(value);
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(draftKey),
+              child: const Text('Rename'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return rawKey;
+  }
+
   static Future<bool> showDeleteKeyConfirmation(
     BuildContext context, {
     required String fullPath,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/key_tree_node.dart';
 
-enum KeyContextAction { addChild, delete }
+enum KeyContextAction { addChild, rename, delete }
 
 class KeyTreeSidebar extends StatefulWidget {
   const KeyTreeSidebar({
@@ -12,6 +12,7 @@ class KeyTreeSidebar extends StatefulWidget {
     required this.onSearchChanged,
     required this.onSelectKey,
     required this.onAddChildKey,
+    required this.onRenameKey,
     required this.onDeleteKey,
     required this.translationsByKey,
     required this.languages,
@@ -26,6 +27,7 @@ class KeyTreeSidebar extends StatefulWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSelectKey;
   final ValueChanged<String> onAddChildKey;
+  final ValueChanged<String> onRenameKey;
   final ValueChanged<String> onDeleteKey;
   final Map<String, Map<String, String>> translationsByKey;
   final List<String> languages;
@@ -38,6 +40,9 @@ class KeyTreeSidebar extends StatefulWidget {
 
 class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
   late Set<String> _expandedNodes;
+  static const double _treeIndentStep = 6;
+  static const double _treeGuideLeftOffset = 16;
+  static const double _treeGuideGutterWidth = 4;
 
   @override
   void initState() {
@@ -201,15 +206,15 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
 
     return children.map((child) {
       final bool hasChildren = child.children.isNotEmpty;
-      final EdgeInsets rowIndent = EdgeInsets.only(left: depth * 10.0);
       final bool isTranslationMatch = widget.translationMatches.contains(
         child.fullPath,
       );
       final bool hasMissing = hasMissingRecursive(child);
 
       if (!hasChildren) {
-        return Padding(
-          padding: rowIndent,
+        return _wrapWithTreeGuides(
+          depth: depth,
+          guideColor: _guideColorForDepth(context, depth),
           child: _withKeyContextMenu(
             context: context,
             node: child,
@@ -218,7 +223,6 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
               dense: true,
               visualDensity: _compactDensity,
               minVerticalPadding: 4,
-              minTileHeight: 36,
               selected: child.fullPath == widget.selectedKey,
               onTap: () => widget.onSelectKey(child.fullPath),
               title: Row(
@@ -244,11 +248,6 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
                     ),
                 ],
               ),
-              subtitle: Text(
-                child.fullPath,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: _subtitleFontSize),
-              ),
             ),
           ),
         );
@@ -256,8 +255,9 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
 
       final bool expanded = _expandedNodes.contains(child.fullPath);
 
-      return Padding(
-        padding: rowIndent,
+      return _wrapWithTreeGuides(
+        depth: depth,
+        guideColor: _guideColorForDepth(context, depth),
         child: ExpansionTile(
           key: PageStorageKey<String>(
             'key-tree-${child.fullPath}-${widget.searchQuery}',
@@ -274,7 +274,6 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
               dense: true,
               visualDensity: _compactDensity,
               minVerticalPadding: 0,
-              minTileHeight: 36,
               selected: child.fullPath == widget.selectedKey,
               onTap: () => widget.onSelectKey(child.fullPath),
               title: Row(
@@ -295,11 +294,6 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
                     ),
                 ],
               ),
-              subtitle: Text(
-                child.fullPath,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: _subtitleFontSize),
-              ),
             ),
           ),
           initiallyExpanded: expanded,
@@ -314,6 +308,48 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
         ),
       );
     }).toList();
+  }
+
+  Color _guideColorForDepth(BuildContext context, int depth) {
+    if (depth <= 0) {
+      return Theme.of(context).colorScheme.outlineVariant;
+    }
+
+    // Deterministic pseudo-random hue by depth to keep colors stable.
+    final int seed = ((depth * 1103515245) + 12345) & 0x7fffffff;
+    final double hue = (seed % 360).toDouble();
+    final double saturation = 0.50 + (((seed >> 8) % 28) / 100);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double value = isDark ? 0.95 : 0.72;
+
+    return HSVColor.fromAHSV(
+      0.72,
+      hue,
+      saturation.clamp(0.0, 1.0),
+      value,
+    ).toColor();
+  }
+
+  Widget _wrapWithTreeGuides({
+    required int depth,
+    required Color guideColor,
+    required Widget child,
+  }) {
+    if (depth == 0) {
+      return child;
+    }
+
+    final double guideWidth = _treeGuideLeftOffset + _treeGuideGutterWidth;
+
+    return CustomPaint(
+      painter: _TreeGuidePainter(
+        depth: depth,
+        step: _treeIndentStep,
+        leftOffset: _treeGuideLeftOffset,
+        color: guideColor,
+      ),
+      child: Padding(padding: EdgeInsets.only(left: guideWidth), child: child),
+    );
   }
 
   Widget _withKeyContextMenu({
@@ -354,6 +390,10 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
           child: Text('Add child key'),
         ),
         PopupMenuItem<KeyContextAction>(
+          value: KeyContextAction.rename,
+          child: Text('Rename'),
+        ),
+        PopupMenuItem<KeyContextAction>(
           value: KeyContextAction.delete,
           child: Text('Delete'),
         ),
@@ -368,9 +408,49 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
       case KeyContextAction.addChild:
         widget.onAddChildKey(node.fullPath);
         break;
+      case KeyContextAction.rename:
+        widget.onRenameKey(node.fullPath);
+        break;
       case KeyContextAction.delete:
         widget.onDeleteKey(node.fullPath);
         break;
     }
+  }
+}
+
+class _TreeGuidePainter extends CustomPainter {
+  _TreeGuidePainter({
+    required this.depth,
+    required this.step,
+    required this.leftOffset,
+    required this.color,
+  });
+
+  final int depth;
+  final double step;
+  final double leftOffset;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint =
+        Paint()
+          ..color = color.withValues(alpha: 0.55)
+          ..strokeWidth = 1;
+
+    if (depth <= 0) {
+      return;
+    }
+
+    final double x = leftOffset + (step / 2);
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TreeGuidePainter oldDelegate) {
+    return oldDelegate.depth != depth ||
+        oldDelegate.step != step ||
+        oldDelegate.leftOffset != leftOffset ||
+        oldDelegate.color != color;
   }
 }

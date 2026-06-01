@@ -388,6 +388,107 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
     await _addKey('$parentPath.$segment');
   }
 
+  Future<void> _showRenameKeyDialog(String oldPath) async {
+    final String? rawNewPath = await KeyDialogs.showRenameKeyDialog(
+      context,
+      oldPath,
+    );
+
+    if (!mounted || rawNewPath == null) {
+      return;
+    }
+
+    await _renameKeyPath(oldPath, rawNewPath);
+  }
+
+  Future<void> _renameKeyPath(String oldPath, String newPathRaw) async {
+    final String newPath = newPathRaw.trim();
+
+    if (oldPath == newPath) {
+      return;
+    }
+
+    if (!_isValidTranslationKey(newPath)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invalid key. Use letters/numbers/_/- and dots between segments.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final List<String> affectedKeys =
+        _keys
+            .where(
+              (String key) => key == oldPath || key.startsWith('$oldPath.'),
+            )
+            .toList()
+          ..sort();
+
+    if (affectedKeys.isEmpty) {
+      return;
+    }
+
+    final Set<String> affectedSet = affectedKeys.toSet();
+    final Map<String, Map<String, String>> rowsByOldKey =
+        <String, Map<String, String>>{};
+    for (final String key in affectedKeys) {
+      rowsByOldKey[key] = Map<String, String>.from(
+        _translationsByKey[key] ?? <String, String>{},
+      );
+    }
+
+    final Map<String, String> renamedByOldKey = <String, String>{};
+    for (final String key in affectedKeys) {
+      final String suffix = key == oldPath ? '' : key.substring(oldPath.length);
+      renamedByOldKey[key] = '$newPath$suffix';
+    }
+
+    final Set<String> renamedKeys = renamedByOldKey.values.toSet();
+    if (renamedKeys.length != renamedByOldKey.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rename would create duplicate keys.')),
+      );
+      return;
+    }
+
+    final bool collidesWithExisting = _keys.any(
+      (String key) => !affectedSet.contains(key) && renamedKeys.contains(key),
+    );
+    if (collidesWithExisting) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rename conflicts with an existing key.')),
+      );
+      return;
+    }
+
+    _applyEditorValues();
+    setState(() {
+      for (final String key in affectedKeys) {
+        _translationsByKey.remove(key);
+      }
+
+      for (final String oldKey in affectedKeys) {
+        final String newKey = renamedByOldKey[oldKey] ?? oldKey;
+        final Map<String, String> row = <String, String>{
+          for (final String language in _languages)
+            language: (rowsByOldKey[oldKey]?[language] ?? ''),
+        };
+        _translationsByKey[newKey] = row;
+      }
+
+      _keys = _translationsByKey.keys.toList()..sort();
+
+      final String? selectedKey = _selectedKey;
+      if (selectedKey != null && affectedSet.contains(selectedKey)) {
+        _selectedKey = renamedByOldKey[selectedKey];
+      }
+      _bindEditors();
+    });
+  }
+
   Future<void> _deleteKeyPath(String fullPath) async {
     final List<String> affectedKeys =
         _keys
@@ -534,6 +635,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             onSearchChanged: _onSearchChanged,
             onSelectKey: _selectKey,
             onAddChildKey: _showAddChildKeyDialog,
+            onRenameKey: _showRenameKeyDialog,
             onDeleteKey: _deleteKeyPath,
             searchQuery: searchQuery,
             translationMatches: translationMatches,
