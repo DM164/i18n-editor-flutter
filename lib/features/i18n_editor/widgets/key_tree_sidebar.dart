@@ -6,6 +6,7 @@ enum KeyContextAction { addChild, rename, delete }
 
 class KeyTreeSidebar extends StatefulWidget {
   const KeyTreeSidebar({
+    required this.width,
     required this.keys,
     required this.selectedKey,
     required this.searchController,
@@ -22,6 +23,7 @@ class KeyTreeSidebar extends StatefulWidget {
     super.key,
   });
 
+  final double width;
   final List<String> keys;
   final String? selectedKey;
   final TextEditingController searchController;
@@ -98,7 +100,7 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
             : theme.colorScheme.outlineVariant.withValues(alpha: 0.25);
 
     return SizedBox(
-      width: 320,
+      width: widget.width,
       child: Card(
         margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         child: Column(
@@ -212,6 +214,13 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
         child.fullPath,
       );
       final bool hasMissing = hasMissingRecursive(child);
+      final bool isSelected = child.fullPath == widget.selectedKey;
+      final Color selectedTileColor = Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: 0.72);
+      final Color selectedTextColor = Theme.of(
+        context,
+      ).colorScheme.onPrimaryContainer;
 
       if (!hasChildren) {
         return _wrapWithTreeGuides(
@@ -225,11 +234,20 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
               dense: true,
               visualDensity: _compactDensity,
               minVerticalPadding: 4,
-              selected: child.fullPath == widget.selectedKey,
+              selected: isSelected,
+              selectedTileColor: selectedTileColor,
+              selectedColor: selectedTextColor,
               onTap: () => widget.onSelectKey(child.fullPath),
               title: Row(
                 children: [
-                  Text(child.segment, overflow: TextOverflow.ellipsis),
+                  Text(
+                    child.segment,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
                   if (isTranslationMatch)
                     Padding(
                       padding: const EdgeInsets.only(left: 4),
@@ -263,50 +281,58 @@ class _KeyTreeSidebarState extends State<KeyTreeSidebar> {
         child: _withKeyContextMenu(
           context: context,
           node: child,
-          child: ExpansionTile(
-            key: PageStorageKey<String>(
-              'key-tree-${child.fullPath}-${widget.searchQuery}',
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: isSelected ? selectedTileColor : Colors.transparent,
             ),
-            dense: true,
-            visualDensity: _compactDensity,
-            shape: Border(top: BorderSide(color: dividerColor)),
-            collapsedShape: const Border(),
-            tilePadding: _tilePadding,
-            childrenPadding: EdgeInsets.zero,
-            title: ListTile(
-              contentPadding: EdgeInsets.zero,
+            child: ExpansionTile(
+              key: PageStorageKey<String>(
+                'key-tree-${child.fullPath}-${widget.searchQuery}',
+              ),
               dense: true,
               visualDensity: _compactDensity,
-              minVerticalPadding: 0,
-              minTileHeight: 20,
-              title: Row(
-                children: [
-                  Text(
-                    child.segment,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  if (hasMissing)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.help_outline,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.error,
+              shape: Border(top: BorderSide(color: dividerColor)),
+              collapsedShape: const Border(),
+              tilePadding: _tilePadding,
+              childrenPadding: EdgeInsets.zero,
+              title: ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: _compactDensity,
+                minVerticalPadding: 0,
+                minTileHeight: 20,
+                title: Row(
+                  children: [
+                    Text(
+                      child.segment,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isSelected ? selectedTextColor : null,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                ],
+                    if (hasMissing)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.help_outline,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                  ],
+                ),
               ),
+              initiallyExpanded: expanded,
+              children: <Widget>[
+                ..._buildTreeWidgets(
+                  context,
+                  child,
+                  dividerColor: dividerColor,
+                  depth: depth + 1,
+                ),
+              ],
             ),
-            initiallyExpanded: expanded,
-            children: <Widget>[
-              ..._buildTreeWidgets(
-                context,
-                child,
-                dividerColor: dividerColor,
-                depth: depth + 1,
-              ),
-            ],
           ),
         ),
       );

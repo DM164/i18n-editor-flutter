@@ -10,45 +10,57 @@ class KeyDialogs {
     }
 
     String draftKey = '';
+    final FocusNode inputFocusNode = FocusNode();
 
-    final String? rawKey = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'Add translation key',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-          content: TextField(
-            autofocus: false,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              hintText: 'example: common.action.add',
-              border: OutlineInputBorder(),
-              hintStyle: TextStyle(fontSize: 14),
-            ),
-            onChanged: (String value) {
-              draftKey = value;
-            },
-            onSubmitted: (String value) {
-              Navigator.of(dialogContext).pop(value);
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(draftKey),
-              child: const Text('Add key'),
-            ),
-          ],
-        );
-      },
-    );
+    try {
+      final String? rawKey = await showDialog<String>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (inputFocusNode.canRequestFocus) {
+              inputFocusNode.requestFocus();
+            }
+          });
 
-    return rawKey;
+          return AlertDialog(
+            title: const Text(
+              'Add translation key',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            content: TextField(
+              focusNode: inputFocusNode,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                hintText: 'example: common.action.add',
+                border: OutlineInputBorder(),
+                hintStyle: TextStyle(fontSize: 14),
+              ),
+              onChanged: (String value) {
+                draftKey = value;
+              },
+              onSubmitted: (String value) {
+                Navigator.of(dialogContext).pop(value);
+              },
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(draftKey),
+                child: const Text('Add key'),
+              ),
+            ],
+          );
+        },
+      );
+
+      return rawKey;
+    } finally {
+      inputFocusNode.dispose();
+    }
   }
 
   static Future<String?> showAddChildKeyDialog(

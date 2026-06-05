@@ -19,6 +19,8 @@ class I18nEditorPage extends StatefulWidget {
 
 class _I18nEditorPageState extends State<I18nEditorPage> {
   static const String _translationsFolderName = 'translations';
+  static const double _minSidebarWidth = 240;
+  static const double _maxSidebarWidth = 560;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -33,6 +35,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
   String? _selectedKey;
   String? _projectFolderPath;
   String? _translationsFolderPath;
+  double _sidebarWidth = 320;
   bool _isBusy = false;
 
   @override
@@ -590,6 +593,15 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
     return validPattern.hasMatch(key);
   }
 
+  void _resizeSidebar(DragUpdateDetails details) {
+    setState(() {
+      _sidebarWidth = (_sidebarWidth + details.delta.dx).clamp(
+        _minSidebarWidth,
+        _maxSidebarWidth,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool hasLanguages = _languages.isNotEmpty;
@@ -709,6 +721,7 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
       body: Row(
         children: <Widget>[
           KeyTreeSidebar(
+            width: _sidebarWidth,
             keys: filteredKeys,
             selectedKey: _selectedKey,
             searchController: _searchController,
@@ -722,6 +735,24 @@ class _I18nEditorPageState extends State<I18nEditorPage> {
             translationMatches: translationMatches,
             translationsByKey: _translationsByKey,
             languages: _languages,
+          ),
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragUpdate: _resizeSidebar,
+              child: SizedBox(
+                width: 8,
+                child: Center(
+                  child: Container(
+                    width: 2,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.75),
+                  ),
+                ),
+              ),
+            ),
           ),
           Expanded(
             child: LanguageEditorsPanel(
